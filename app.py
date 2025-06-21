@@ -1,77 +1,111 @@
 import streamlit as st
 import pickle
-import re
+import tensorflow as tf
+import numpy as np
+from PIL import Image
 
-# ──────────────── PAGE CONFIG ──────────────── #
-st.set_page_config(page_title="Fake Review Detector", page_icon="🕵️‍♂️", layout="centered")
-
-# ──────────────── LOAD MODEL ──────────────── #
+# --- Load Review Model and Vectorizer ---
 with open("model/review_model.pkl", "rb") as f:
-    model = pickle.load(f)
+    review_model = pickle.load(f)
 
 with open("model/vectorizer.pkl", "rb") as f:
     vectorizer = pickle.load(f)
 
-# ──────────────── SIDEBAR ──────────────── #
-with st.sidebar:
-    st.header("🛠 About this App")
-    st.markdown("""
-    **Fake Review Detector** helps identify whether a product review is likely **genuine** or **fake** using a trained ML model.
+# --- Load Image Classification Model ---
+image_model = tf.keras.models.load_model("model/product_auth_model.h5", compile=False)
 
-    **Inputs:**
-    - Product name
-    - Brand
-    - Review platform
-    - The actual review text
+# --- Streamlit Page Config ---
+st.set_page_config(page_title="🧠 Smart Product Review & Authenticity Detector", layout="wide")
 
-    **Output:**
-    - Prediction (Genuine/Fake)
-    - Model confidence
-    """)
+st.markdown(
+    "<h1 style='text-align: center; color: #4B8BBE;'>🧠 Smart Product Review & Authenticity Detector</h1>",
+    unsafe_allow_html=True,
+)
 
-# ──────────────── HELPER FUNCTIONS ──────────────── #
-def clean_text(text):
-    text = re.sub(r"http\S+|www\S+|https\S+", "", text)
-    text = re.sub(r"[^A-Za-z0-9\s]", "", text)
-    return text.lower().strip()
+st.markdown(
+    "<p style='text-align: center; font-size: 18px;'>Analyze product reviews for authenticity and verify product images to detect duplicates.</p>",
+    unsafe_allow_html=True,
+)
 
-def make_prediction(product, brand, source, review):
-    combined = f"Product: {product}, Brand: {brand}, Source: {source}, Review: {review}"
-    cleaned = clean_text(combined)
-    vec = vectorizer.transform([cleaned])
-    prediction = model.predict(vec)[0]
-    confidence = round(max(model.predict_proba(vec)[0]) * 100, 2)
-    return prediction, confidence
+# --- Layout Columns (side by side) ---
+left_col, right_col = st.columns(2)
 
-# ──────────────── INPUT FORM ──────────────── #
-st.title("🕵️‍♂️ Fake Product Review Detector")
-st.markdown("Check if a product review is **genuine or fake** using AI!")
+# --- Left Column: Review Analysis ---
+with left_col:
+    st.markdown("## 📝 Review Authenticity Analysis")
+    product_name = st.text_input("Product Name")
+    brand_name = st.text_input("Brand Name")
+    source = st.selectbox("Where did you see the review?", ["Amazon", "Flipkart", "Myntra", "Snapdeal", "Other"])
+    review_text = st.text_area("Enter the Product Review")
 
-product = st.text_input("🛍 Product Name")
-brand = st.text_input("🏷 Brand Name")
-source = st.selectbox("🌐 Where did you see the review?",
-                      ["Amazon", "Flipkart", "YouTube", "Instagram", "Twitter", "Other"])
-review_text = st.text_area("✍ Review Text")
-
-# ──────────────── PREDICT BUTTON ──────────────── #
-if st.button("🔍 Check Review"):
-    if not (product and brand and review_text):
-        st.warning("⚠️ Please fill all fields before submitting.")
-    else:
-        prediction, confidence = make_prediction(product, brand, source, review_text)
-
-        # Styled output
-        if prediction == 1:
-            st.markdown(f"""
-            <div style='background-color:#d4edda; padding:15px; border-radius:10px; color:#155724;'>
-                ✅ <strong>Genuine Review</strong><br>
-                Confidence: {confidence}%
-            </div>
-            """, unsafe_allow_html=True)
+    if st.button("Analyze Review"):
+        if review_text.strip() == "":
+            st.warning("Please enter a review to analyze.")
         else:
-            st.markdown(f"""
-            <div style='background-color:#f8d7da; padding:15px; border-radius:10px; color:#721c24;'>
-                🚨 <strong>Fake Review</strong><br>
-                Confidence: {confidence}%
-            </div>
-            """, unsafe_allow_html=True)
+            vector = vectorizer.transform([review_text])
+            pred_proba = review_model.predict_proba(vector)[0]
+            label = "Genuine" if np.argmax(pred_proba) == 0 else "Fake"
+            confidence = np.max(pred_proba) * 100
+
+            if label == "Genuine":
+                st.markdown(
+                    f"<div style='padding: 12px; background-color: #e8f5e9; color: #2e7d32; "
+                    f"border-radius: 8px; font-weight: bold;'>"
+                    f"✅ Prediction: {label} Review (Confidence: {confidence:.2f}%)"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f"<div style='padding: 12px; background-color: #ffebee; color: #c62828; "
+                    f"border-radius: 8px; font-weight: bold;'>"
+                    f"❌ Prediction: {label} Review (Confidence: {confidence:.2f}%)"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+
+            with st.expander("🔍 See Prediction Probabilities"):
+                st.markdown(f"- 🟢 Genuine confidence: `{pred_proba[0]*100:.2f}%`")
+                st.markdown(f"- 🔴 Fake confidence: `{pred_proba[1]*100:.2f}%`")
+
+# --- Right Column: Product Image Authenticity ---
+with right_col:
+    st.markdown("## 🖼️ Product Image Authenticity Check")
+    uploaded_image = st.file_uploader("Upload a Product Image", type=["jpg", "png", "jpeg"])
+
+    if uploaded_image is not None:
+        img = Image.open(uploaded_image).convert("RGB")
+        st.image(img, caption="Uploaded Product Image", use_container_width=True)
+
+        img = img.resize((224, 224))
+        img_array = np.array(img) / 255.0
+        img_array = np.expand_dims(img_array, axis=0)
+
+        prediction = image_model.predict(img_array)
+
+        if prediction.shape[-1] == 1:
+            confidence = prediction[0][0]
+            label = "Original" if confidence >= 0.5 else "Duplicate"
+            st.markdown(
+                f"<div style='padding: 12px; background-color: {'#e8f5e9' if label == 'Original' else '#ffebee'}; "
+                f"color: {'#2e7d32' if label == 'Original' else '#c62828'}; border-radius: 8px; font-weight: bold;'>"
+                f"{'✅' if label == 'Original' else '❌'} Prediction: {label} Product (Confidence: {confidence*100:.2f}%)"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        elif prediction.shape[-1] == 2:
+            label = "Original" if np.argmax(prediction) == 1 else "Duplicate"
+            confidence = np.max(prediction) * 100
+            st.markdown(
+                f"<div style='padding: 12px; background-color: {'#e8f5e9' if label == 'Original' else '#ffebee'}; "
+                f"color: {'#2e7d32' if label == 'Original' else '#c62828'}; border-radius: 8px; font-weight: bold;'>"
+                f"{'✅' if label == 'Original' else '❌'} Prediction: {label} Product (Confidence: {confidence:.2f}%)"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+            with st.expander("🔍 See Prediction Probabilities"):
+                st.markdown(f"- 🟢 Original confidence: `{prediction[0][1]*100:.2f}%`")
+                st.markdown(f"- 🔴 Duplicate confidence: `{prediction[0][0]*100:.2f}%`")
+        else:
+            st.error("⚠️ Model output not as expected. Please check your model's final layer configuration.")

@@ -1,13 +1,15 @@
-# 🕵️‍♂️ Fake Product Review Detector
+# 🧠 Smart Product Review & Authenticity Detector
 
-This app uses machine learning to detect whether a product review is **fake or genuine**.
+This Streamlit app allows users to:
+- Check if a product review is genuine or fake using ML
+- Upload a product image to detect if it’s original or a duplicate
 
-## 🔍 How it works:
-- You input a product name, brand, source, and review
-- The model classifies it as **Fake** or **Genuine**
-- Shows confidence score from a trained logistic regression model
+## 🚀 How to Run
+1. Clone this repo
+2. Install requirements: `pip install -r requirements.txt`
+3. Run: `streamlit run app.py`
 
-## 🚀 Built With:
-- Python
-- Scikit-learn
-- Streamlit
+## 📂 Folder Structure
+
+- `app.py`: Main app
+- `model/`: Contains all trained ML models

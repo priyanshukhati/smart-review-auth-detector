@@ -1,0 +1,16 @@
+# Ignore virtual environment
+.venv/
+
+# Ignore VS Code config
+.vscode/
+
+# Ignore Python cache
+__pycache__/
+*.py[cod]
+*.log
+
+# MacOS and system junk
+.DS_Store
+Thumbs.db
+
+resave_model.py
