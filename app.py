@@ -12,7 +12,7 @@ with open("model/vectorizer.pkl", "rb") as f:
     vectorizer = pickle.load(f)
 
 # --- Load Image Classification Model ---
-image_model = tf.keras.models.load_model("model/product_auth_model.h5", compile=False)
+image_model = tf.keras.models.load_model("model/product_auth_model.keras", compile=False)
 
 # --- Streamlit Page Config ---
 st.set_page_config(page_title="🧠 Smart Product Review & Authenticity Detector", layout="wide")
