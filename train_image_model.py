@@ -1,57 +1,49 @@
 import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras import layers, models
+from sklearn.model_selection import train_test_split
 import os
 
-# Set parameters
-IMG_SIZE = (224, 224)
-BATCH_SIZE = 16
-DATASET_PATH = "product_image_dataset"
+# --- Paths and image size ---
+img_height, img_width = 224, 224
+batch_size = 32
 
-# Load data using ImageDataGenerator
-datagen = ImageDataGenerator(
-    rescale=1./255,
-    validation_split=0.2
-)
+# --- Load and preprocess dataset ---
+datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
 
-# Training data
 train_data = datagen.flow_from_directory(
-    DATASET_PATH,
-    target_size=IMG_SIZE,
-    batch_size=BATCH_SIZE,
+    'product_image_dataset',
+    target_size=(img_height, img_width),
+    batch_size=batch_size,
     class_mode='binary',
     subset='training'
 )
 
-# Validation data
 val_data = datagen.flow_from_directory(
-    DATASET_PATH,
-    target_size=IMG_SIZE,
-    batch_size=BATCH_SIZE,
+    'product_image_dataset',
+    target_size=(img_height, img_width),
+    batch_size=batch_size,
     class_mode='binary',
     subset='validation'
 )
 
-# Build the model
-base_model = MobileNetV2(input_shape=(224, 224, 3), include_top=False, weights='imagenet', pooling='avg')
-base_model.trainable = False  # Freeze the base
-
-model = models.Sequential([
-    base_model,
-    layers.Dense(128, activation='relu'),
-    layers.Dropout(0.3),
-    layers.Dense(1, activation='sigmoid')
+# --- ✅ Define model (this is where your code goes) ---
+model = Sequential([
+    Input(shape=(224, 224, 3)),
+    Conv2D(32, (3,3), activation='relu'),
+    MaxPooling2D(),
+    Flatten(),
+    Dense(64, activation='relu'),
+    Dense(1, activation='sigmoid')
 ])
 
+# --- Compile ---
 model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 
-# Train the model
-history = model.fit(train_data, validation_data=val_data, epochs=5)
+# --- Train ---
+model.fit(train_data, validation_data=val_data, epochs=5)
 
-# Save the model
-if not os.path.exists("model"):
-    os.makedirs("model")
-
-model.save("model/product_auth_model.h5")
-print("✅ Model saved to model/product_auth_model.h5")
+# --- ✅ Save in Keras 3-compatible format ---
+model.save("model/product_auth_model.keras", save_format="keras")
+print("✅ Image model saved as .keras (Keras 3 compatible)")
